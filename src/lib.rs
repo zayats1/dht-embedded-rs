@@ -64,8 +64,7 @@ impl<HE: fmt::Debug> fmt::Display for DhtError<HE> {
     }
 }
 
-#[cfg(feature = "std")]
-impl<HE: fmt::Debug> std::error::Error for DhtError<HE> {}
+impl<HE: fmt::Debug> core::error::Error for DhtError<HE> {}
 
 /// Trait that allows us to disable interrupts when reading from the sensor
 pub trait InterruptControl {
