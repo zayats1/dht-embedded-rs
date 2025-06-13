@@ -66,24 +66,6 @@ impl<HE: fmt::Debug> fmt::Display for DhtError<HE> {
 
 impl<HE: fmt::Debug> core::error::Error for DhtError<HE> {}
 
-/// Trait that allows us to disable interrupts when reading from the sensor
-pub trait InterruptControl {
-    fn enable_interrupts(&mut self);
-    fn disable_interrupts(&mut self);
-}
-
-/// A dummy implementation of InterruptControl that does nothing
-pub struct NoopInterruptControl;
-
-impl InterruptControl for NoopInterruptControl {
-    fn enable_interrupts(&mut self) {}
-    fn disable_interrupts(&mut self) {}
-}
-
-/// A trait for reading data from the sensor
-///
-/// This level of indirection is useful so you can write generic code that
-/// does not assume whether a DHT11 or DHT22 sensor is being used.
 pub trait DhtSensor<HE> {
     /// Reads data from the sensor and returns a `Reading`
     fn read(&mut self) -> Result<Reading, DhtError<HE>>;
@@ -92,37 +74,22 @@ pub trait DhtSensor<HE> {
 #[doc(hidden)]
 pub struct Dht<
     HE,
-    ID: InterruptControl,
     D: DelayNs,
     P: InputPin<Error = HE> + OutputPin<Error = HE>,
 > {
-    interrupt_disabler: ID,
     delay: D,
     pin: P,
 }
 
-impl<HE, ID: InterruptControl, D: DelayNs, P: InputPin<Error = HE> + OutputPin<Error = HE>>
-    Dht<HE, ID, D, P>
+impl<HE,D: DelayNs, P: InputPin<Error = HE> + OutputPin<Error = HE>>
+    Dht<HE, D, P>
 {
-    fn new(interrupt_disabler: ID, delay: D, pin: P) -> Self {
-        Self {
-            interrupt_disabler,
-            delay,
-            pin,
-        }
+    fn new(delay: D, pin: P) -> Self {
+        Self { delay, pin }
     }
 
+    ///  User may need to disable interrupts while reading
     fn read(&mut self, parse_data: fn(&[u8]) -> (f32, f32)) -> Result<Reading, DhtError<HE>> {
-        self.interrupt_disabler.disable_interrupts();
-        let res = self.read_uninterruptible(parse_data);
-        self.interrupt_disabler.enable_interrupts();
-        res
-    }
-
-    fn read_uninterruptible(
-        &mut self,
-        parse_data: fn(&[u8]) -> (f32, f32),
-    ) -> Result<Reading, DhtError<HE>> {
         let mut buf: [u8; 5] = [0; 5];
 
         // Wake up the sensor
@@ -195,19 +162,18 @@ impl<HE, ID: InterruptControl, D: DelayNs, P: InputPin<Error = HE> + OutputPin<E
 /// A DHT11 sensor
 pub struct Dht11<
     HE,
-    ID: InterruptControl,
     D: DelayNs,
     P: InputPin<Error = HE> + OutputPin<Error = HE>,
 > {
-    dht: Dht<HE, ID, D, P>,
+    dht: Dht<HE, D, P>,
 }
 
-impl<HE, ID: InterruptControl, D: DelayNs, P: InputPin<Error = HE> + OutputPin<Error = HE>>
-    Dht11<HE, ID, D, P>
+impl<HE, D: DelayNs, P: InputPin<Error = HE> + OutputPin<Error = HE>>
+    Dht11<HE, D, P>
 {
-    pub fn new(interrupt_disabler: ID, delay: D, pin: P) -> Self {
+    pub fn new(delay: D, pin: P) -> Self {
         Self {
-            dht: Dht::new(interrupt_disabler, delay, pin),
+            dht: Dht::new(delay, pin),
         }
     }
 
@@ -216,30 +182,29 @@ impl<HE, ID: InterruptControl, D: DelayNs, P: InputPin<Error = HE> + OutputPin<E
     }
 }
 
-impl<HE, ID: InterruptControl, D: DelayNs, P: InputPin<Error = HE> + OutputPin<Error = HE>>
-    DhtSensor<HE> for Dht11<HE, ID, D, P>
+impl<HE,D: DelayNs, P: InputPin<Error = HE> + OutputPin<Error = HE>>
+    DhtSensor<HE> for Dht11<HE, D, P>
 {
     fn read(&mut self) -> Result<Reading, DhtError<HE>> {
-        self.dht.read(Dht11::<HE, ID, D, P>::parse_data)
+        self.dht.read(Dht11::<HE, D, P>::parse_data)
     }
 }
 
 /// A DHT22 sensor
 pub struct Dht22<
     HE,
-    ID: InterruptControl,
     D: DelayNs,
     P: InputPin<Error = HE> + OutputPin<Error = HE>,
 > {
-    dht: Dht<HE, ID, D, P>,
+    dht: Dht<HE, D, P>,
 }
 
-impl<HE, ID: InterruptControl, D: DelayNs, P: InputPin<Error = HE> + OutputPin<Error = HE>>
-    Dht22<HE, ID, D, P>
+impl<HE, D: DelayNs, P: InputPin<Error = HE> + OutputPin<Error = HE>>
+    Dht22<HE, D, P>
 {
-    pub fn new(interrupt_disabler: ID, delay: D, pin: P) -> Self {
+    pub fn new(delay: D, pin: P) -> Self {
         Self {
-            dht: Dht::new(interrupt_disabler, delay, pin),
+            dht: Dht::new(delay, pin),
         }
     }
 
@@ -253,10 +218,10 @@ impl<HE, ID: InterruptControl, D: DelayNs, P: InputPin<Error = HE> + OutputPin<E
     }
 }
 
-impl<HE, ID: InterruptControl, D: DelayNs, P: InputPin<Error = HE> + OutputPin<Error = HE>>
-    DhtSensor<HE> for Dht22<HE, ID, D, P>
+impl<HE,  D: DelayNs, P: InputPin<Error = HE> + OutputPin<Error = HE>>
+    DhtSensor<HE> for Dht22<HE,  D, P>
 {
     fn read(&mut self) -> Result<Reading, DhtError<HE>> {
-        self.dht.read(Dht22::<HE, ID, D, P>::parse_data)
+        self.dht.read(Dht22::<HE, D, P>::parse_data)
     }
 }
